@@ -64,6 +64,9 @@
     "category": "Music",
     "shortDescription": "A sleek music player for Subsonic-compatible servers",
     "longDescription": "Psysonic is a desktop music player for Subsonic-compatible servers such as Navidrome and Gonic. It features a modern Catppuccin-themed UI with glassmorphism effects, gapless playback, a fullscreen ambient player, play queue management with drag-and-drop, scrobbling support, and multi-server profiles.",
+    "android": {
+      "minSdkVersion": 26
+    },
     "linux": {
       "appimage": {
         "bundleMediaFramework": true

@@ -4,7 +4,7 @@ import { dirname } from '@tauri-apps/api/path';
 import { commands } from '@/generated/bindings';
 import { useTranslation } from 'react-i18next';
 import { version as currentVersion } from '../../../../package.json';
-import { IS_LINUX, IS_MACOS, IS_WINDOWS } from '@/lib/util/platform';
+import { IS_LINUX, IS_MACOS, IS_MOBILE_PLATFORM, IS_WINDOWS } from '@/lib/util/platform';
 import { SKIP_KEY, isNewer, isWithinModerationWindow, pickAsset, type ReleaseData, type DlState } from '@/lib/util/appUpdaterHelpers';
 
 /** All update-modal state, the GitHub release probe and the download/relaunch
@@ -59,6 +59,9 @@ export function useAppUpdater() {
   };
 
   useEffect(() => {
+    // Mobile updates ship as APKs / store builds, not through the desktop
+    // release flow — never probe or prompt there.
+    if (IS_MOBILE_PLATFORM) return;
     let cancelled = false;
     const timer = setTimeout(() => { if (!cancelled) fetchRelease(); }, 4000);
 

@@ -1,0 +1,30 @@
+{
+  "$schema": "../gen/schemas/capability-schema.json",
+  "identifier": "mobile",
+  "description": "Capabilities for Psysonic on mobile. default.json minus the desktop-only plugins (global-shortcut, window-state, process, updater) and the multi-window/mini-player permissions",
+  "platforms": ["android", "iOS"],
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "shell:default",
+    { "identifier": "shell:allow-open", "allow": [{ "url": "https://**" }] },
+    "store:default",
+    "store:allow-load",
+    "store:allow-set",
+    "store:allow-get",
+    "store:allow-save",
+    "dialog:default",
+    "dialog:allow-open",
+    "dialog:allow-save",
+    "fs:default",
+    "fs:allow-write-file",
+    "fs:allow-read-file",
+    "fs:allow-mkdir",
+    "fs:allow-remove",
+    "fs:allow-read-dir",
+    "fs:allow-app-write-recursive",
+    "core:window:allow-set-title",
+    "core:window:allow-set-fullscreen",
+    "core:window:allow-is-fullscreen"
+  ]
+}
