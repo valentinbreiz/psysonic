@@ -1,4 +1,4 @@
-#[cfg(not(debug_assertions))]
+#[cfg(all(desktop, not(debug_assertions)))]
 use tauri::Emitter;
 
 use crate::{MprisControls, ShortcutMap};
@@ -11,14 +11,15 @@ pub(crate) fn register_global_shortcut(
     shortcut: String,
     action: String,
 ) -> Result<(), String> {
-    // Debug builds run alongside release with shared settings — do not grab OS shortcuts.
-    #[cfg(debug_assertions)]
+    // Debug builds run alongside release with shared settings — do not grab OS
+    // shortcuts. Mobile has no OS-global shortcuts at all.
+    #[cfg(any(mobile, debug_assertions))]
     {
         let _ = (app, shortcut_map, shortcut, action);
         Ok(())
     }
 
-    #[cfg(not(debug_assertions))]
+    #[cfg(all(desktop, not(debug_assertions)))]
     {
         use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
 
@@ -56,13 +57,13 @@ pub(crate) fn unregister_global_shortcut(
     shortcut_map: tauri::State<ShortcutMap>,
     shortcut: String,
 ) -> Result<(), String> {
-    #[cfg(debug_assertions)]
+    #[cfg(any(mobile, debug_assertions))]
     {
         let _ = (app, shortcut_map, shortcut);
         Ok(())
     }
 
-    #[cfg(not(debug_assertions))]
+    #[cfg(all(desktop, not(debug_assertions)))]
     {
         use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut};
         shortcut_map.lock().unwrap().remove(&shortcut);
@@ -81,34 +82,45 @@ pub(crate) fn mpris_set_metadata(
     cover_url: Option<String>,
     duration_secs: Option<f64>,
 ) -> Result<(), String> {
-    use souvlaki::MediaMetadata;
-    use std::time::Duration;
+    // Mobile media controls will go through MediaSession, not souvlaki.
+    #[cfg(mobile)]
+    {
+        let _ = (controls, title, artist, album, cover_url, duration_secs);
+        Ok(())
+    }
 
-    let duration = duration_secs.map(Duration::from_secs_f64);
-    let mut guard = controls.lock().unwrap();
-    let Some(ctrl) = guard.as_mut() else { return Ok(()); };
+    #[cfg(desktop)]
+    {
+        use souvlaki::MediaMetadata;
+        use std::time::Duration;
 
-    // #1102: Windows SMTC cannot render our cached WebP covers. souvlaki loads
-    // the file and SetThumbnail/set_metadata succeed, but the lock screen and
-    // Quick-Settings media tile show a blank cover (the OS thumbnail decoder
-    // does not handle WebP, even with the Store WebP extension installed).
-    // Transcode local WebP covers to PNG for the OS media controls; macOS
-    // (ImageIO) decodes WebP fine, so other platforms pass through unchanged.
-    let cover_url = smtc_cover_url(cover_url);
+        let duration = duration_secs.map(Duration::from_secs_f64);
+        let mut guard = controls.lock().unwrap();
+        let Some(ctrl) = guard.as_mut() else { return Ok(()); };
 
-    ctrl.set_metadata(MediaMetadata {
-        title: title.as_deref(),
-        artist: artist.as_deref(),
-        album: album.as_deref(),
-        cover_url: cover_url.as_deref(),
-        duration,
-    })
-    .map_err(|e| format!("MPRIS set_metadata failed: {e:?}"))
+        // #1102: Windows SMTC cannot render our cached WebP covers. souvlaki loads
+        // the file and SetThumbnail/set_metadata succeed, but the lock screen and
+        // Quick-Settings media tile show a blank cover (the OS thumbnail decoder
+        // does not handle WebP, even with the Store WebP extension installed).
+        // Transcode local WebP covers to PNG for the OS media controls; macOS
+        // (ImageIO) decodes WebP fine, so other platforms pass through unchanged.
+        let cover_url = smtc_cover_url(cover_url);
+
+        ctrl.set_metadata(MediaMetadata {
+            title: title.as_deref(),
+            artist: artist.as_deref(),
+            album: album.as_deref(),
+            cover_url: cover_url.as_deref(),
+            duration,
+        })
+        .map_err(|e| format!("MPRIS set_metadata failed: {e:?}"))
+    }
 }
 
 /// Rewrite a cached WebP cover URL to a PNG the OS media controls can render.
 /// Windows SMTC cannot decode WebP thumbnails (#1102); other platforms and any
 /// non-`file://`/non-WebP URL pass through unchanged.
+#[cfg(desktop)]
 fn smtc_cover_url(cover_url: Option<String>) -> Option<String> {
     #[cfg(target_os = "windows")]
     {
@@ -155,19 +167,28 @@ pub(crate) fn mpris_set_playback(
     playing: bool,
     position_secs: Option<f64>,
 ) -> Result<(), String> {
-    use souvlaki::{MediaPlayback, MediaPosition};
-    use std::time::Duration;
+    #[cfg(mobile)]
+    {
+        let _ = (controls, playing, position_secs);
+        Ok(())
+    }
 
-    let progress = position_secs.map(|s| MediaPosition(Duration::from_secs_f64(s)));
-    let playback = if playing {
-        MediaPlayback::Playing { progress }
-    } else {
-        MediaPlayback::Paused { progress }
-    };
-    let mut guard = controls.lock().unwrap();
-    let Some(ctrl) = guard.as_mut() else { return Ok(()); };
-    ctrl.set_playback(playback)
-        .map_err(|e| format!("MPRIS set_playback failed: {e:?}"))
+    #[cfg(desktop)]
+    {
+        use souvlaki::{MediaPlayback, MediaPosition};
+        use std::time::Duration;
+
+        let progress = position_secs.map(|s| MediaPosition(Duration::from_secs_f64(s)));
+        let playback = if playing {
+            MediaPlayback::Playing { progress }
+        } else {
+            MediaPlayback::Paused { progress }
+        };
+        let mut guard = controls.lock().unwrap();
+        let Some(ctrl) = guard.as_mut() else { return Ok(()); };
+        ctrl.set_playback(playback)
+            .map_err(|e| format!("MPRIS set_playback failed: {e:?}"))
+    }
 }
 
 /// Returns true if `path` is an accessible directory (used for pre-flight checks in the frontend).

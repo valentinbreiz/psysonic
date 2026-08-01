@@ -21,6 +21,10 @@ pub use psysonic_core::{app_deprintln, app_eprintln};
 pub use psysonic_syncfs::{sync_cancel_flags, DownloadSemaphore};
 #[cfg(target_os = "windows")]
 mod taskbar_win;
+#[cfg(desktop)]
+mod tray_runtime;
+#[cfg(mobile)]
+#[path = "tray_runtime_mobile.rs"]
 mod tray_runtime;
 
 pub(crate) use tray_runtime::*;
@@ -95,10 +99,15 @@ fn scheduler_idle_payload(
 
 /// Shared handle to OS media controls (MPRIS2 on Linux, Now Playing on macOS, SMTC on Windows).
 /// `None` if souvlaki failed to initialize (e.g. no D-Bus session on Linux).
+#[cfg(desktop)]
 type MprisControls = Mutex<Option<souvlaki::MediaControls>>;
+/// Mobile: OS media controls will go through MediaSession / MPNowPlayingInfoCenter
+/// instead of souvlaki; the state stays `None` so the mpris_* commands keep one signature.
+#[cfg(mobile)]
+type MprisControls = Mutex<Option<std::convert::Infallible>>;
 
 /// Release builds only: focus or CLI-hand off when a second instance is launched.
-#[cfg(not(debug_assertions))]
+#[cfg(all(desktop, not(debug_assertions)))]
 fn on_second_instance<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
     argv: Vec<String>,
@@ -140,6 +149,7 @@ fn set_app_user_model_id() {
 /// committed `bindings.ts` is plain TypeScript for `tsc`. Grow `collect_commands!`
 /// crate-by-crate (see the specta-contract plan).
 #[cfg(any(debug_assertions, test))]
+#[cfg(any(all(desktop, debug_assertions), test))]
 fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
     tauri_specta::Builder::<tauri::Wry>::new()
         // Map Rust `i64`/`u64`/`usize`/… to TS `number` globally. This is
@@ -389,7 +399,7 @@ fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
 /// TS exporter config. Kept as a single seam so the exporter options (header /
 /// per-type BigInt-style handling for i64 DTOs) are configured in one place as
 /// commands are added crate-by-crate.
-#[cfg(any(debug_assertions, test))]
+#[cfg(any(all(desktop, debug_assertions), test))]
 fn bindings_exporter() -> specta_typescript::Typescript {
     specta_typescript::Typescript::default()
 }
@@ -400,7 +410,7 @@ fn bindings_exporter() -> specta_typescript::Typescript {
 /// `git diff --check` rejects — so without this every command documented in more than
 /// one paragraph would fail the repository hygiene check on a generated file nobody
 /// edits by hand.
-#[cfg(any(debug_assertions, test))]
+#[cfg(any(all(desktop, debug_assertions), test))]
 fn export_bindings_to(path: &str) {
     specta_builder()
         .export(bindings_exporter(), path)
@@ -421,13 +431,15 @@ fn export_bindings_to(path: &str) {
 
 /// Regenerate the committed bindings on a debug launch (matches the dev workflow;
 /// the CI freshness gate runs the equivalent export in a test — see `specta_export`).
-#[cfg(debug_assertions)]
+/// Desktop only: on a phone there is no checkout to write into.
+#[cfg(all(desktop, debug_assertions))]
 fn export_specta_bindings() {
     export_bindings_to("../src/generated/bindings.ts");
 }
 
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    #[cfg(debug_assertions)]
+    #[cfg(all(desktop, debug_assertions))]
     export_specta_bindings();
 
     // Windows: bind this process to an explicit AppUserModelID before any window
@@ -452,6 +464,13 @@ pub fn run() {
         .manage(TrayPlaybackState::default())
         .manage(TrayMenuItemsState::default())
         .manage(TrayMenuLabelsState::default())
+        .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_store::Builder::default().build())
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_fs::init());
+
+    #[cfg(desktop)]
+    let builder = builder
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(
@@ -463,13 +482,9 @@ pub fn run() {
                 .with_denylist(&["mini"])
                 .build(),
         )
-        .plugin(tauri_plugin_shell::init())
-        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
-        .plugin(tauri_plugin_store::Builder::default().build())
-        .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_fs::init());
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build());
 
-    #[cfg(not(debug_assertions))]
+    #[cfg(all(desktop, not(debug_assertions)))]
     let builder = builder.plugin(tauri_plugin_single_instance::init(on_second_instance));
 
     builder
@@ -1100,6 +1115,7 @@ pub fn run() {
             // Always build on startup when possible; the frontend calls toggle_tray_icon(false)
             // immediately after load if the user has disabled the tray icon.
             // May be skipped if Ayatana/AppIndicator libraries are missing (no panic).
+            #[cfg(desktop)]
             {
                 if let Some(tray) = try_build_tray_icon(app.handle()) {
                     *app.state::<TrayState>().lock().unwrap() = Some(tray);
@@ -1108,7 +1124,7 @@ pub fn run() {
 
             // ── MPRIS2 / OS media controls via souvlaki ──────────────────
             // Release only: debug builds share the D-Bus name / SMTC slot with prod.
-            #[cfg(not(debug_assertions))]
+            #[cfg(all(desktop, not(debug_assertions)))]
             {
                 use souvlaki::{MediaControlEvent, MediaControls, PlatformConfig};
 
@@ -1206,7 +1222,7 @@ pub fn run() {
 
                 app.manage(MprisControls::new(maybe_controls));
             }
-            #[cfg(debug_assertions)]
+            #[cfg(any(mobile, debug_assertions))]
             {
                 app.manage(MprisControls::new(None));
             }

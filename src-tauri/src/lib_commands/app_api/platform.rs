@@ -4,6 +4,7 @@
 use std::path::PathBuf;
 #[cfg(target_os = "linux")]
 use std::sync::{Mutex, OnceLock};
+#[cfg(desktop)]
 use tauri::Manager;
 
 #[cfg(target_os = "linux")]
@@ -188,6 +189,11 @@ pub(crate) fn theme_animation_risk() -> bool {
 #[tauri::command]
 #[specta::specta]
 pub(crate) fn set_window_decorations(enabled: bool, app_handle: tauri::AppHandle) {
+    // Mobile windows have no decorations to toggle.
+    #[cfg(mobile)]
+    let _ = (enabled, app_handle);
+
+    #[cfg(desktop)]
     if let Some(win) = app_handle.get_webview_window("main") {
         let _ = win.set_decorations(enabled);
         // Re-enabling native decorations on GTK causes the window manager to

@@ -47,9 +47,7 @@ tauri = { version = "2", features = ["protocol-asset", "tray-icon", "image-png"]
 specta = "=2.0.0-rc.25"
 specta-typescript = "=0.0.12"
 tauri-specta = { version = "=2.0.0-rc.25", features = ["derive", "typescript"] }
-tauri-plugin-single-instance = "2"
 tauri-plugin-shell = "2"
-tauri-plugin-global-shortcut = "2"
 tauri-plugin-store = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-fs = "2"
@@ -63,10 +61,6 @@ md5 = "0.8"
 tokio = { version = "1", features = ["rt", "time", "sync"] }
 biquad = "0.6"
 ringbuf = "0.5"
-tauri-plugin-window-state = "2.4.1"
-tauri-plugin-process = "2"
-tauri-plugin-updater = "2"
-souvlaki = { version = "0.8", default-features = false, features = ["use_zbus"] }
 discord-rich-presence = "1.1"
 url = "2"
 thread-priority = "3"
@@ -80,6 +74,17 @@ dasp_sample = "0.11.0"
 zip = "8"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }
 webp = "0.3"
+
+# Desktop only: system tray, global shortcuts, window state, self-updater,
+# single-instance and souvlaki OS media controls have no Android/iOS backends
+# (mobile media controls will come via MediaSession / MPNowPlayingInfoCenter).
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+tauri-plugin-single-instance = "2"
+tauri-plugin-global-shortcut = "2"
+tauri-plugin-window-state = "2.4.1"
+tauri-plugin-process = "2"
+tauri-plugin-updater = "2"
+souvlaki = { version = "0.8", default-features = false, features = ["use_zbus"] }
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"

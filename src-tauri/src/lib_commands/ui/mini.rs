@@ -27,6 +27,7 @@ pub(crate) fn mini_pos_file(app: &tauri::AppHandle) -> Option<std::path::PathBuf
     app.path().app_config_dir().ok().map(|p| p.join("mini_player_pos.json"))
 }
 
+#[cfg(desktop)]
 pub(crate) fn read_mini_pos(app: &tauri::AppHandle) -> Option<MiniPlayerPosition> {
     let path = mini_pos_file(app)?;
     let raw = std::fs::read_to_string(&path).ok()?;
@@ -52,6 +53,7 @@ pub(crate) fn last_programmatic_pos_set() -> &'static Mutex<std::time::Instant> 
     LAST.get_or_init(|| Mutex::new(std::time::Instant::now() - std::time::Duration::from_secs(10)))
 }
 
+#[cfg(desktop)]
 pub(crate) fn mark_mini_pos_programmatic() {
     *last_programmatic_pos_set().lock().unwrap() = std::time::Instant::now();
 }
@@ -89,6 +91,7 @@ pub(crate) fn persist_mini_pos_throttled(app: &tauri::AppHandle, x: i32, y: i32)
 /// the window on-screen. Used to drop persisted positions that point at a
 /// monitor that is no longer enumerated (unplugged, hot-plug detection
 /// race during early boot, resolution change, monitor reorder).
+#[cfg(desktop)]
 pub(crate) fn mini_position_visible(app: &tauri::AppHandle, x: i32, y: i32) -> bool {
     const MIN_VISIBLE: i32 = 80;
     let monitors = match app.available_monitors() {
@@ -109,6 +112,7 @@ pub(crate) fn mini_position_visible(app: &tauri::AppHandle, x: i32, y: i32) -> b
 /// the main window sits on (falls back to primary). A 24 px logical margin
 /// keeps it off the screen edge; +56 px on the bottom margin avoids most
 /// taskbars/docks since Tauri does not expose work-area rects.
+#[cfg(desktop)]
 pub(crate) fn default_mini_position(app: &tauri::AppHandle) -> Option<tauri::PhysicalPosition<i32>> {
     let monitor = app
         .get_webview_window("main")
@@ -171,16 +175,27 @@ document.documentElement.style.removeProperty('--psy-anim-speed');
 
 /// Resume rendering and bring the main window to the foreground.
 pub(crate) fn restore_main_window(main: &tauri::WebviewWindow) -> Result<(), String> {
-    main.eval(RESUME_RENDERING_JS).map_err(|e| e.to_string())?;
-    main.unminimize().map_err(|e| e.to_string())?;
-    main.show().map_err(|e| e.to_string())?;
-    main.set_focus().map_err(|e| e.to_string())?;
-    Ok(())
+    // Mobile has a single always-visible activity — nothing to restore.
+    #[cfg(mobile)]
+    {
+        let _ = main;
+        Ok(())
+    }
+
+    #[cfg(desktop)]
+    {
+        main.eval(RESUME_RENDERING_JS).map_err(|e| e.to_string())?;
+        main.unminimize().map_err(|e| e.to_string())?;
+        main.show().map_err(|e| e.to_string())?;
+        main.set_focus().map_err(|e| e.to_string())?;
+        Ok(())
+    }
 }
 
 /// Build the mini player webview window. Caller decides `visible` so the
 /// same code path serves both pre-creation (Windows, hidden at app start)
 /// and lazy creation (other platforms, shown on demand).
+#[cfg(desktop)]
 pub(crate) fn build_mini_player_window(
     app: &tauri::AppHandle,
     visible: bool,
@@ -282,10 +297,19 @@ pub(crate) fn build_mini_player_window(
 #[tauri::command]
 #[specta::specta]
 pub(crate) fn preload_mini_player(app: tauri::AppHandle) -> Result<(), String> {
-    if app.get_webview_window("mini").is_some() {
-        return Ok(());
+    #[cfg(mobile)]
+    {
+        let _ = app;
+        Ok(())
     }
-    build_mini_player_window(&app, false).map(|_| ())
+
+    #[cfg(desktop)]
+    {
+        if app.get_webview_window("mini").is_some() {
+            return Ok(());
+        }
+        build_mini_player_window(&app, false).map(|_| ())
+    }
 }
 
 /// Open (or toggle) the mini player window. On platforms where the window
@@ -296,6 +320,15 @@ pub(crate) fn preload_mini_player(app: tauri::AppHandle) -> Result<(), String> {
 #[tauri::command]
 #[specta::specta]
 pub(crate) fn open_mini_player(app: tauri::AppHandle) -> Result<(), String> {
+    // No floating windows on mobile — the mini player is desktop-only.
+    #[cfg(mobile)]
+    {
+        let _ = app;
+        Ok(())
+    }
+
+    #[cfg(desktop)]
+    {
     let win = match app.get_webview_window("mini") {
         Some(w) => w,
         None => build_mini_player_window(&app, false)?,
@@ -336,6 +369,7 @@ pub(crate) fn open_mini_player(app: tauri::AppHandle) -> Result<(), String> {
         }
     }
     Ok(())
+    }
 }
 
 /// Hide the mini player window if it exists and restore the main window.
@@ -343,14 +377,23 @@ pub(crate) fn open_mini_player(app: tauri::AppHandle) -> Result<(), String> {
 #[tauri::command]
 #[specta::specta]
 pub(crate) fn close_mini_player(app: tauri::AppHandle) -> Result<(), String> {
-    if let Some(win) = app.get_webview_window("mini") {
-        let _ = win.eval(PAUSE_RENDERING_JS);
-        win.hide().map_err(|e| e.to_string())?;
+    #[cfg(mobile)]
+    {
+        let _ = app;
+        Ok(())
     }
-    if let Some(main) = app.get_webview_window("main") {
-        restore_main_window(&main)?;
+
+    #[cfg(desktop)]
+    {
+        if let Some(win) = app.get_webview_window("mini") {
+            let _ = win.eval(PAUSE_RENDERING_JS);
+            win.hide().map_err(|e| e.to_string())?;
+        }
+        if let Some(main) = app.get_webview_window("main") {
+            restore_main_window(&main)?;
+        }
+        Ok(())
     }
-    Ok(())
 }
 
 /// Unminimize + show + focus the main window. Called from the mini player's
@@ -360,14 +403,23 @@ pub(crate) fn close_mini_player(app: tauri::AppHandle) -> Result<(), String> {
 #[tauri::command]
 #[specta::specta]
 pub(crate) fn show_main_window(app: tauri::AppHandle) -> Result<(), String> {
-    if let Some(mini) = app.get_webview_window("mini") {
-        let _ = mini.eval(PAUSE_RENDERING_JS);
-        let _ = mini.hide();
+    #[cfg(mobile)]
+    {
+        let _ = app;
+        Ok(())
     }
-    if let Some(main) = app.get_webview_window("main") {
-        restore_main_window(&main)?;
+
+    #[cfg(desktop)]
+    {
+        if let Some(mini) = app.get_webview_window("mini") {
+            let _ = mini.eval(PAUSE_RENDERING_JS);
+            let _ = mini.hide();
+        }
+        if let Some(main) = app.get_webview_window("main") {
+            restore_main_window(&main)?;
+        }
+        Ok(())
     }
-    Ok(())
 }
 
 /// Inject the pause script into this webview (CSS @keyframes pause + `__psyHidden`).
@@ -395,13 +447,22 @@ pub(crate) fn resume_rendering(window: tauri::WebviewWindow) -> Result<(), Strin
 #[tauri::command]
 #[specta::specta]
 pub(crate) fn set_mini_player_always_on_top(app: tauri::AppHandle, on_top: bool) -> Result<(), String> {
-    if let Some(win) = app.get_webview_window("mini") {
-        if on_top {
-            let _ = win.set_always_on_top(false);
-        }
-        win.set_always_on_top(on_top).map_err(|e| e.to_string())?;
+    #[cfg(mobile)]
+    {
+        let _ = (app, on_top);
+        Ok(())
     }
-    Ok(())
+
+    #[cfg(desktop)]
+    {
+        if let Some(win) = app.get_webview_window("mini") {
+            if on_top {
+                let _ = win.set_always_on_top(false);
+            }
+            win.set_always_on_top(on_top).map_err(|e| e.to_string())?;
+        }
+        Ok(())
+    }
 }
 
 /// Resize the mini player window (logical pixels). Used when toggling the
@@ -418,15 +479,24 @@ pub(crate) fn resize_mini_player(
     min_width: Option<f64>,
     min_height: Option<f64>,
 ) -> Result<(), String> {
-    if let Some(win) = app.get_webview_window("mini") {
-        // Lower the floor first; otherwise set_size to a value below the
-        // existing min would silently clamp.
-        if let (Some(mw), Some(mh)) = (min_width, min_height) {
-            win.set_min_size(Some(tauri::LogicalSize::new(mw, mh)))
-                .map_err(|e| e.to_string())?;
-        }
-        win.set_size(tauri::LogicalSize::new(width, height)).map_err(|e| e.to_string())?;
+    #[cfg(mobile)]
+    {
+        let _ = (app, width, height, min_width, min_height);
+        Ok(())
     }
-    Ok(())
+
+    #[cfg(desktop)]
+    {
+        if let Some(win) = app.get_webview_window("mini") {
+            // Lower the floor first; otherwise set_size to a value below the
+            // existing min would silently clamp.
+            if let (Some(mw), Some(mh)) = (min_width, min_height) {
+                win.set_min_size(Some(tauri::LogicalSize::new(mw, mh)))
+                    .map_err(|e| e.to_string())?;
+            }
+            win.set_size(tauri::LogicalSize::new(width, height)).map_err(|e| e.to_string())?;
+        }
+        Ok(())
+    }
 }
 

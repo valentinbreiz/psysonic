@@ -348,6 +348,9 @@ pub fn open_folder(path: String) -> Result<(), String> {
             .spawn()
             .map_err(|e| e.to_string())?;
     }
+    // Android/iOS have no user-facing file manager to hand a path to.
+    #[cfg(any(target_os = "android", target_os = "ios"))]
+    let _ = &path;
     Ok(())
 }
 

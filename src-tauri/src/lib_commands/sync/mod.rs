@@ -1,3 +1,7 @@
+#[cfg(desktop)]
+pub(crate) mod tray;
+#[cfg(mobile)]
+#[path = "tray_mobile.rs"]
 pub(crate) mod tray;
 
 pub(crate) use tray::{
@@ -5,7 +9,9 @@ pub(crate) use tray::{
     toggle_tray_icon,
 };
 // Internal helpers consumed elsewhere in the shell crate:
-pub(crate) use tray::{stop_audio_engine, try_build_tray_icon};
+pub(crate) use tray::stop_audio_engine;
+#[cfg(desktop)]
+pub(crate) use tray::try_build_tray_icon;
 #[cfg(target_os = "linux")]
 pub(crate) use tray::is_tiling_wm;
 
