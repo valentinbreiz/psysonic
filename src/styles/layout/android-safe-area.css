@@ -1,0 +1,38 @@
+/* ─── Android system-bar safe areas ───
+   Android WebView never fills env(safe-area-inset-*) for edge-to-edge
+   activities; MainActivity.kt feeds the real insets to androidSafeArea.ts,
+   which sets these variables. They stay 0px everywhere else, so desktop
+   layouts are untouched. Imported after the other mobile layout files so the
+   calc() heights win their equal-specificity base rules. */
+:root {
+  --safe-area-top: 0px;
+  --safe-area-right: 0px;
+  --safe-area-bottom: 0px;
+  --safe-area-left: 0px;
+}
+
+/* Status bar melts into the header: same background, content pushed below. */
+.app-shell[data-mobile] .content-header {
+  height: calc(52px + var(--safe-area-top));
+  padding-top: var(--safe-area-top);
+}
+
+/* The player bar is the bottom-most mobile grid row (its `auto` track grows
+   with the padding); its own background extends under the gesture area. */
+.app-shell[data-mobile] .player-bar {
+  height: calc(64px + var(--safe-area-bottom));
+  padding-bottom: var(--safe-area-bottom);
+}
+
+/* Landscape: clear the punch-hole camera / rounded corners. */
+.app-shell[data-mobile] {
+  padding-left: var(--safe-area-left);
+  padding-right: var(--safe-area-right);
+}
+
+/* /now-playing takeover hides both the header and the player bar — pad the
+   shell itself instead. */
+.app-shell[data-mobile-player] {
+  padding-top: var(--safe-area-top);
+  padding-bottom: var(--safe-area-bottom);
+}

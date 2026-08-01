@@ -21,6 +21,7 @@
 @import './player-bar-mobile.css';
 @import './app-updater-toast-mobile.css';
 @import './mobile-player-takeover.css';
+@import './android-safe-area.css';
 @import './header.css';
 @import './cover-art.css';
 @import './track-metadata.css';
