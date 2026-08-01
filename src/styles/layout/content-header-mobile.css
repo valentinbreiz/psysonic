@@ -3,6 +3,20 @@
   padding: 0 var(--space-4);
   height: 52px;
   gap: var(--space-3);
+  /* The header and the page share --bg-app on mobile; a hairline between two
+     identical surfaces reads as clutter under the merged status-bar band. */
+  border-bottom: none;
+}
+
+/* The spacer exists to push the controls right of the desktop LiveSearch;
+   with the search hidden on mobile it only added a stray flex gap on the
+   left, breaking the 16px margin symmetry with the Orbit trigger. */
+.app-shell[data-mobile] .content-header .spacer {
+  display: none;
+}
+
+.app-shell[data-mobile] .content-header .now-playing-dropdown {
+  margin-left: auto;
 }
 
 /* The header's controls (indicator + dropdown + Orbit) don't fit a narrow
