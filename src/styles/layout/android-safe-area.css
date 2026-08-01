@@ -30,9 +30,24 @@
   padding-right: var(--safe-area-right);
 }
 
-/* /now-playing takeover hides both the header and the player bar — pad the
-   shell itself instead. */
-.app-shell[data-mobile-player] {
+/* Full-screen fixed overlays escape the app-shell entirely (position: fixed,
+   inset: 0), so each needs its own safe-area padding. env(safe-area-inset-*)
+   stays 0 in Android's WebView — max() keeps it meaningful for iOS later. */
+
+/* /now-playing mobile player view */
+.mp-view {
+  padding-top: var(--safe-area-top);
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), var(--safe-area-bottom));
+}
+
+/* Mobile search overlay (bottom-nav Search) */
+.mobile-search-overlay {
   padding-top: var(--safe-area-top);
   padding-bottom: var(--safe-area-bottom);
+}
+
+/* Mobile "More" bottom sheet — keep its existing nav-height offset and add
+   the gesture area under it. */
+.mobile-more-sheet {
+  padding-bottom: calc(0.75rem + var(--bottom-nav-height, 62px) + var(--safe-area-bottom));
 }
