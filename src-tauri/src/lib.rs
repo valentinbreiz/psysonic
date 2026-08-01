@@ -102,9 +102,13 @@ fn scheduler_idle_payload(
 #[cfg(desktop)]
 type MprisControls = Mutex<Option<souvlaki::MediaControls>>;
 /// Mobile: OS media controls will go through MediaSession / MPNowPlayingInfoCenter
-/// instead of souvlaki; the state stays `None` so the mpris_* commands keep one signature.
+/// instead of souvlaki; the state stays `None` so the mpris_* commands keep one
+/// signature. Dedicated uninhabited type — tauri's `.manage()` is TypeId-keyed,
+/// so this must not alias the tray stubs' `Mutex<Option<...>>` types.
 #[cfg(mobile)]
-type MprisControls = Mutex<Option<std::convert::Infallible>>;
+enum NoMediaControls {}
+#[cfg(mobile)]
+type MprisControls = Mutex<Option<NoMediaControls>>;
 
 /// Release builds only: focus or CLI-hand off when a second instance is launched.
 #[cfg(all(desktop, not(debug_assertions)))]
@@ -448,6 +452,26 @@ pub fn run() {
     // Quick-Settings / lock-screen media tile showed "Unknown application").
     #[cfg(target_os = "windows")]
     set_app_user_model_id();
+
+    // Android: tao keeps the JavaVM/activity refs in its own statics and never
+    // fills the `ndk-context` ones that cpal's AAudio host reads (device
+    // enumeration goes through the Java AudioManager). Bridge them before the
+    // audio engine starts, or cpal aborts the process with "android context
+    // was not initialized". The context is registered from onActivityCreate on
+    // the JVM thread and this thread can win that race, so poll briefly.
+    #[cfg(target_os = "android")]
+    {
+        use tao::platform::android::prelude::main_android_context;
+        for _ in 0..400 {
+            if let Some(ctx) = main_android_context() {
+                unsafe {
+                    ndk_context::initialize_android_context(ctx.java_vm, ctx.context_jobject)
+                };
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+    }
 
     let (audio_engine, _audio_thread) = audio::create_engine();
 

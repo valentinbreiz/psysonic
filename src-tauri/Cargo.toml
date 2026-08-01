@@ -86,6 +86,13 @@ tauri-plugin-process = "2"
 tauri-plugin-updater = "2"
 souvlaki = { version = "0.8", default-features = false, features = ["use_zbus"] }
 
+# Bridges tao's JNI context into `ndk-context` so cpal's AAudio host can reach
+# the Java AudioManager (see the android block at the top of run() in lib.rs).
+# tao must stay in lockstep with tauri's own tao dependency.
+[target.'cfg(target_os = "android")'.dependencies]
+tao = "0.35"
+ndk-context = "0.1"
+
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
 
@@ -110,6 +117,14 @@ windows = { version = "0.62", features = [
     "Win32_UI_Shell",
     "Win32_UI_WindowsAndMessaging",
 ] }
+
+# Android PoC: wry 0.55.1 with the MainPipe channel made unbounded. The stock
+# bounded(8) channel deadlocks with the UI thread during page load (onPageLoaded
+# blocks on a tauri state mutex while the event-loop thread blocks sending an
+# eval into the full pipe) — see patches/wry-0.55.1/src/android/main_pipe.rs.
+# Drop this once upstream wry/tauri fix the page-load/eval deadlock.
+[patch.crates-io]
+wry = { path = "patches/wry-0.55.1" }
 
 # NOTE: The local `symphonia-format-isomp4` path patch (0.5-based) was removed for
 # the Symphonia 0.6 migration. Symphonia 0.6 upstream already covers the esds

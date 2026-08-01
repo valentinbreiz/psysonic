@@ -4,15 +4,21 @@
 
 use std::sync::Mutex;
 
+/// Uninhabited placeholders. Each stub state needs its own marker type —
+/// tauri's `.manage()` is keyed by TypeId, so two aliases of the same
+/// `Mutex<Option<...>>` would collide and panic at startup.
+pub(crate) enum NoTrayIcon {}
+pub(crate) enum NoTrayMenuItems {}
+
 /// Always `None` on mobile — there is no tray icon to hold.
-pub(crate) type TrayState = Mutex<Option<std::convert::Infallible>>;
+pub(crate) type TrayState = Mutex<Option<NoTrayIcon>>;
 
 pub(crate) type TrayTooltip = Mutex<String>;
 
 #[derive(Default)]
 pub(crate) struct TrayPlaybackState(#[allow(dead_code)] pub(crate) Mutex<String>);
 
-pub(crate) type TrayMenuItemsState = Mutex<Option<std::convert::Infallible>>;
+pub(crate) type TrayMenuItemsState = Mutex<Option<NoTrayMenuItems>>;
 
 #[derive(Clone, Default)]
 pub(crate) struct TrayMenuLabels;

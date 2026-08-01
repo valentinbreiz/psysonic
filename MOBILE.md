@@ -18,6 +18,12 @@ behind Tauri's `cfg(desktop)` / `cfg(mobile)` flags:
 Webview capabilities for mobile live in `src-tauri/capabilities/mobile.json`
 (`default.json` stays desktop-only via its `platforms` list).
 
+One integration quirk worth knowing: nothing in the Tauri stack (tao/wry) fills
+the `ndk-context` statics that cpal's AAudio host reads to reach the Java
+`AudioManager` — without help the app aborts at startup with *"android context
+was not initialized"*. `run()` bridges tao's JNI context into `ndk-context`
+before the audio engine starts (see the android block at the top of `run()`).
+
 ## Building the Android app
 
 Prerequisites: Android SDK + NDK, JDK 17+, Rust Android targets:
