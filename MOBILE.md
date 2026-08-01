@@ -18,11 +18,28 @@ behind Tauri's `cfg(desktop)` / `cfg(mobile)` flags:
 Webview capabilities for mobile live in `src-tauri/capabilities/mobile.json`
 (`default.json` stays desktop-only via its `platforms` list).
 
-One integration quirk worth knowing: nothing in the Tauri stack (tao/wry) fills
-the `ndk-context` statics that cpal's AAudio host reads to reach the Java
-`AudioManager` — without help the app aborts at startup with *"android context
-was not initialized"*. `run()` bridges tao's JNI context into `ndk-context`
-before the audio engine starts (see the android block at the top of `run()`).
+Two integration quirks worth knowing (both handled in the android block at the
+top of `run()`):
+
+- Nothing in the Tauri stack (tao/wry) fills the `ndk-context` statics that
+  cpal's AAudio host reads to reach the Java `AudioManager` — without help the
+  app aborts at startup with *"android context was not initialized"*. `run()`
+  bridges tao's JNI context into `ndk-context` before the audio engine starts.
+- reqwest's rustls backend verifies certificates through
+  `rustls-platform-verifier`, which on Android calls into the system trust
+  store via Kotlin classes (`org.rustls.platformverifier.*`). Those classes
+  ship as an AAR inside the `rustls-platform-verifier-android` crate; the
+  Gradle project in `gen/android` resolves that crate's bundled maven repo via
+  `cargo metadata` and depends on it, and `run()` hands the verifier the JVM +
+  activity context once at startup. Without either half, every Rust-side HTTPS
+  request (cover art, audio streaming, scrobbling) fails with *"Expect
+  rustls-platform-verifier to be initialized"* — while login still works,
+  because the webview's `fetch` uses the system WebView network stack.
+
+Because the Gradle project now carries real configuration (the verifier AAR,
+`minSdkVersion`, and later a MediaSession foreground service), `gen/android`
+is committed rather than regenerated — do **not** delete it and re-run
+`tauri android init` without re-applying those changes.
 
 ## Building the Android app
 
@@ -38,13 +55,9 @@ export ANDROID_NDK_ROOT="$NDK_HOME"
 export ANDROID_NDK="$NDK_HOME"
 ```
 
-`src-tauri/gen/` is gitignored, so generate the Gradle project once:
-
-```sh
-npx tauri android init
-```
-
-Then build (or `npx tauri android dev` with a device/emulator attached):
+The Gradle project in `src-tauri/gen/android` is committed (see above), so no
+init step is needed. Build (or `npx tauri android dev` with a device/emulator
+attached):
 
 ```sh
 npx tauri android build --apk --target aarch64 --debug

@@ -441,6 +441,30 @@ fn export_specta_bindings() {
     export_bindings_to("../src/generated/bindings.ts");
 }
 
+/// Android: reqwest's rustls backend delegates certificate checks to
+/// rustls-platform-verifier, which calls into Android's own trust store via the
+/// `org.rustls.platformverifier` Kotlin classes (bundled through the Gradle
+/// dependency in `gen/android`). It needs the JVM + app context handed over
+/// once before the first request, or every Rust-side HTTPS call (covers, audio
+/// streaming, scrobbling) panics its worker thread with "Expect
+/// rustls-platform-verifier to be initialized". The webview's own fetches are
+/// unaffected — which is why login works even without this.
+#[cfg(target_os = "android")]
+fn init_rustls_platform_verifier(ctx: &tao::platform::android::prelude::AndroidContext) {
+    let vm = unsafe { jni::JavaVM::from_raw(ctx.java_vm.cast()) };
+    let result = vm.attach_current_thread(|env| -> Result<(), jni::errors::Error> {
+        // `context_jobject` is tao's global ref to the Activity; the wrapper is
+        // only borrowed here (init takes its own global ref) and never dropped
+        // as a local.
+        let context =
+            unsafe { jni::objects::JObject::from_raw(env, ctx.context_jobject.cast()) };
+        rustls_platform_verifier::android::init_with_env(env, context)
+    });
+    if let Err(e) = result {
+        eprintln!("rustls-platform-verifier init failed: {e}");
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     #[cfg(all(desktop, debug_assertions))]
@@ -467,6 +491,7 @@ pub fn run() {
                 unsafe {
                     ndk_context::initialize_android_context(ctx.java_vm, ctx.context_jobject)
                 };
+                init_rustls_platform_verifier(&ctx);
                 break;
             }
             std::thread::sleep(std::time::Duration::from_millis(10));

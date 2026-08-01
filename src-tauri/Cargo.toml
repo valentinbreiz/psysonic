@@ -89,9 +89,14 @@ souvlaki = { version = "0.8", default-features = false, features = ["use_zbus"] 
 # Bridges tao's JNI context into `ndk-context` so cpal's AAudio host can reach
 # the Java AudioManager (see the android block at the top of run() in lib.rs).
 # tao must stay in lockstep with tauri's own tao dependency.
+# rustls-platform-verifier is what reqwest's `rustls` feature already uses for
+# TLS cert checks; it is a direct dependency here only to call its one-time
+# android init (jni 0.22 matches its API types — tao's jni 0.21 is separate).
 [target.'cfg(target_os = "android")'.dependencies]
 tao = "0.35"
 ndk-context = "0.1"
+rustls-platform-verifier = "0.7"
+jni = { version = "0.22", default-features = false }
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"

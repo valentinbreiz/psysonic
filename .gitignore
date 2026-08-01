@@ -31,7 +31,11 @@ dist-ssr
 
 # Tauri
 src-tauri/target/
-src-tauri/gen/
+# gen/android is committed (Gradle project carries real config: rustls
+# platform-verifier AAR, minSdk, future MediaSession service). Build outputs
+# inside it are covered by gen/android/{.gitignore,app/.gitignore}.
+src-tauri/gen/schemas/
+src-tauri/gen/apple/
 src-tauri/lcov.info
 
 # Frontend test coverage
