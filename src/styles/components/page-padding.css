@@ -3,3 +3,31 @@
   padding: var(--space-4) !important;
 }
 
+/* Several pages (Home, artist/composer detail, …) nest their own
+   .content-body wrapper inside the route host, so the rule above applied
+   twice and everything sat 32px from the screen edge. One horizontal inset
+   is enough on a phone. */
+.app-shell[data-mobile] .content-body .content-body {
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
+/* Full-bleed sections on mobile: the hero and the horizontal rails extend
+   under the screen edges (the rails keep the page inset as scroll padding so
+   cards still start aligned with the section titles and scroll under the
+   edge). Section headers keep the regular inset above. */
+.app-shell[data-mobile] .hero,
+.app-shell[data-mobile] .hero-placeholder {
+  width: auto;
+  margin-left: calc(-1 * var(--space-4));
+  margin-right: calc(-1 * var(--space-4));
+}
+
+.app-shell[data-mobile] .album-grid,
+.app-shell[data-mobile] .song-grid {
+  margin-left: calc(-1 * var(--space-4));
+  margin-right: calc(-1 * var(--space-4));
+  padding-left: var(--space-4);
+  padding-right: var(--space-4);
+  scroll-padding-inline: var(--space-4);
+}
