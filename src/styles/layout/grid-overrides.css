@@ -1,6 +1,10 @@
 /* ─── Grid Overrides ─── */
 .app-shell[data-mobile] {
-  grid-template-columns: 1fr;
+  /* minmax(0, 1fr), not 1fr: same trap as the rows in _intro.css — 1fr is
+     minmax(auto, 1fr), so a wide min-content anywhere in the main area
+     (e.g. the content-header's non-shrinking controls) inflates the single
+     column past the phone viewport and pushes every bar off-screen. */
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr) auto auto;
   grid-template-areas:
     "main"
@@ -8,6 +12,18 @@
     "player";
   width: 100vw;
   max-width: 100%;
+}
+
+/* The track is clamped above, but stretched grid/flex items are still
+   floored by their own min-content (min-width: auto) — release them so no
+   bar can outgrow the phone screen. Inner overflow stays handled by each
+   area's own scroll containers. */
+.app-shell[data-mobile] .main-content,
+.app-shell[data-mobile] .bottom-nav,
+.app-shell[data-mobile] .player-bar,
+.app-shell[data-mobile] .content-header,
+.app-shell[data-mobile] .content-body {
+  min-width: 0;
 }
 
 .app-shell[data-mobile][data-titlebar] {

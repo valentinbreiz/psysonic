@@ -5,6 +5,15 @@
   gap: var(--space-3);
 }
 
+/* The header's controls (indicator + dropdown + Orbit) don't fit a narrow
+   phone at their desktop min sizes; the connection indicator is the one
+   flexible child — its URL line already ellipsizes internally. */
+.app-shell[data-mobile] .content-header .connection-indicator-host {
+  flex-shrink: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
 /* Hide queue toggle on mobile */
 .app-shell[data-mobile] .queue-toggle-btn {
   display: none;
