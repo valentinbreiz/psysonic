@@ -43,6 +43,8 @@ mod stream;
 
 pub use device_commands::{audio_default_output_device_name, audio_list_devices_for_engine};
 pub use device_watcher::start_device_watcher;
+#[cfg(target_os = "android")]
+pub use device_watcher::reopen_stream_after_route_change;
 pub use stream_idle::start_stream_idle_watcher;
 pub use engine::{create_engine, refresh_http_user_agent, AudioEngine};
 pub use helpers::{

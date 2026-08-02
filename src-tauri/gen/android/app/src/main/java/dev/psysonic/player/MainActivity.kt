@@ -8,6 +8,7 @@ import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import dev.psysonic.player.media.MediaBridge
 
 class MainActivity : TauriActivity() {
   /**
@@ -31,6 +32,9 @@ class MainActivity : TauriActivity() {
       navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
     )
     super.onCreate(savedInstanceState)
+    // Media stack (MediaSession foreground service) needs a context for
+    // startForegroundService and an activity for the notification permission.
+    MediaBridge.init(this)
   }
 
   override fun onWebViewCreate(webView: WebView) {

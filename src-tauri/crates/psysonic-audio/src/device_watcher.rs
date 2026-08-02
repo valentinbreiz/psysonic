@@ -371,3 +371,20 @@ pub fn start_device_watcher(engine: &AudioEngine, app: tauri::AppHandle) {
         }
     });
 }
+
+/// Android: an output device appeared or disappeared (wired headset,
+/// Bluetooth, USB DAC). AAudio disconnects the active stream on every route
+/// change, so reopen the output on the new default route. Triggered by the
+/// Kotlin `AudioDeviceCallback` through the MediaBridge JNI event — the
+/// polling watcher above never fires there (AAudio exposes a single
+/// "default" device to cpal). Playing tracks are replayed at position by
+/// `try_resume_after_device_change`; everything else falls back to the
+/// frontend `audio:device-changed` path, same as a desktop device switch.
+#[cfg(target_os = "android")]
+pub fn reopen_stream_after_route_change(app: tauri::AppHandle) {
+    tauri::async_runtime::spawn(async move {
+        if !reopen_output_stream(&app, None, ReopenNotify::DeviceChanged).await {
+            crate::app_eprintln!("[psysonic] route-change: stream reopen failed");
+        }
+    });
+}

@@ -5,6 +5,7 @@ import { setupMprisSync } from '@/features/playback/store/audioListenerSetup/mpr
 import { setupRadioMprisMetadata } from '@/features/playback/store/audioListenerSetup/radioMprisMetadata';
 import { setupDiscordPresence } from '@/features/playback/store/audioListenerSetup/discordPresence';
 import { setupEqDeviceSync } from '@/features/playback/store/audioListenerSetup/eqDeviceSync';
+import { setupMobileLifecycleSync } from '@/features/playback/store/audioListenerSetup/mobileLifecycleSync';
 import { bindRadioEqAttachOnEnable } from '@/features/playback/store/radioPlayer';
 import { bindRadioEqStore } from '@/features/playback/utils/audio/radioEqGraph';
 
@@ -27,6 +28,7 @@ export function initAudioListeners(): () => void {
   const stopEqDeviceSync = setupEqDeviceSync();
   const stopRadioEqStore = bindRadioEqStore();
   const stopRadioEqAttach = bindRadioEqAttachOnEnable();
+  const stopMobileLifecycleSync = setupMobileLifecycleSync();
 
   return () => {
     stopAuthSync();
@@ -37,5 +39,6 @@ export function initAudioListeners(): () => void {
     stopEqDeviceSync();
     stopRadioEqStore();
     stopRadioEqAttach();
+    stopMobileLifecycleSync();
   };
 }

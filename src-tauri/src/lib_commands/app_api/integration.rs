@@ -82,8 +82,23 @@ pub(crate) fn mpris_set_metadata(
     cover_url: Option<String>,
     duration_secs: Option<f64>,
 ) -> Result<(), String> {
-    // Mobile media controls will go through MediaSession, not souvlaki.
-    #[cfg(mobile)]
+    // Android media controls go through the Kotlin MediaSession service, not
+    // souvlaki (media_session_android.rs / gen/android MediaBridge).
+    #[cfg(target_os = "android")]
+    {
+        let _ = controls;
+        crate::media_session_android::update_metadata(
+            title.as_deref(),
+            artist.as_deref(),
+            album.as_deref(),
+            cover_url.as_deref(),
+            duration_secs,
+        );
+        Ok(())
+    }
+
+    // iOS: MPNowPlayingInfoCenter integration is still a follow-up.
+    #[cfg(all(mobile, not(target_os = "android")))]
     {
         let _ = (controls, title, artist, album, cover_url, duration_secs);
         Ok(())
@@ -167,7 +182,14 @@ pub(crate) fn mpris_set_playback(
     playing: bool,
     position_secs: Option<f64>,
 ) -> Result<(), String> {
-    #[cfg(mobile)]
+    #[cfg(target_os = "android")]
+    {
+        let _ = controls;
+        crate::media_session_android::update_playback(playing, position_secs);
+        Ok(())
+    }
+
+    #[cfg(all(mobile, not(target_os = "android")))]
     {
         let _ = (controls, playing, position_secs);
         Ok(())

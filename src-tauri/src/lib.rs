@@ -21,6 +21,8 @@ pub use psysonic_core::{app_deprintln, app_eprintln};
 pub use psysonic_syncfs::{sync_cancel_flags, DownloadSemaphore};
 #[cfg(target_os = "windows")]
 mod taskbar_win;
+#[cfg(target_os = "android")]
+mod media_session_android;
 #[cfg(desktop)]
 mod tray_runtime;
 #[cfg(mobile)]
@@ -1275,6 +1277,13 @@ pub fn run() {
             {
                 app.manage(MprisControls::new(None));
             }
+
+            // ── Android MediaSession bridge ───────────────────────────────
+            // Mobile counterpart of the souvlaki block above: hands the app
+            // handle to the JNI bridge (for the media:* event emits) and
+            // resolves the Kotlin MediaBridge class once.
+            #[cfg(target_os = "android")]
+            media_session_android::init(app.handle());
 
             // ── Windows Taskbar Thumbnail Toolbar ────────────────────────
             #[cfg(all(target_os = "windows", not(debug_assertions)))]

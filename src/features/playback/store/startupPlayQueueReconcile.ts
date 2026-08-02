@@ -10,6 +10,8 @@ import {
 import { usePlayerStore } from '@/features/playback/store/playerStore';
 import { filterQueueRefsForServerProfile } from '@/features/playback/utils/playback/trackServerScope';
 import { sameQueueTrack } from '@/features/playback/utils/playback/queueIdentity';
+import { preparePausedRestoreOnStartup } from '@/features/playback/store/pausedRestorePrepare';
+import { IS_MOBILE_PLATFORM } from '@/lib/util/platform';
 
 type StructuralQueue = {
   trackIds: string[];
@@ -113,7 +115,18 @@ export async function reconcileStartupPlayQueues(): Promise<StartupQueueReconcil
     if (!structuralQueueEqual(local, remote)) changed.push(result.value);
   }
 
-  if (changed.length !== 1 || changed[0].queue.songs.length === 0) return 'kept-local';
+  if (changed.length !== 1 || changed[0].queue.songs.length === 0) {
+    // Mobile: every server queue matched the local one structurally, so the
+    // queue itself stays local — but the in-track position only lives
+    // server-side (savePlayQueue heartbeat + background flush; local
+    // currentTime is deliberately not persisted). Process death is routine
+    // on Android, so pick the saved position back up instead of restarting
+    // the track at 0:00. Desktop keeps its existing start-at-zero behaviour.
+    if (IS_MOBILE_PLATFORM && changed.length === 0) {
+      restorePausedPositionFromServer(settled);
+    }
+    return 'kept-local';
+  }
   const [{ serverId, queue }] = changed;
   const mappedTracks = queue.songs.map(song => ({ ...songToTrack(song), serverId }));
   if (representedServerIds.size > 1) {
@@ -122,4 +135,25 @@ export async function reconcileStartupPlayQueues(): Promise<StartupQueueReconcil
     applyMappedQueue(mappedTracks, queue, serverId, true, 0);
   }
   return 'applied';
+}
+
+/** Mobile kept-local path: reload the engine paused at the server-saved
+ *  position when it belongs to the restored current track. */
+function restorePausedPositionFromServer(
+  settled: Array<PromiseSettledResult<{ serverId: string; queue: PlayQueueResult }>>,
+): void {
+  const state = usePlayerStore.getState();
+  const track = state.currentTrack;
+  if (!track || state.isPlaying || state.currentRadio) return;
+
+  for (const result of settled) {
+    if (result.status !== 'fulfilled') continue;
+    const { queue } = result.value;
+    if (queue.current !== track.id || !queue.position) continue;
+    const atSeconds = queue.position / 1000;
+    // A track saved at (or past) its end restarts cleanly at 0:00 instead.
+    if (atSeconds < 1 || (track.duration > 0 && atSeconds >= track.duration - 0.5)) return;
+    preparePausedRestoreOnStartup(track, state.queueItems, state.queueIndex, atSeconds);
+    return;
+  }
 }
