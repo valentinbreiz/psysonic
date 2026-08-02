@@ -1,6 +1,6 @@
 /* ─ Tracklist ─ */
 .tracklist {
-  padding: 0 var(--space-6) var(--space-6);
+  padding: 0 var(--page-inset) var(--page-inset);
   overflow-x: auto;
 }
 

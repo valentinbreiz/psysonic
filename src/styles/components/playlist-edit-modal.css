@@ -143,12 +143,12 @@
 }
 
 /* The album page wraps its header in a flush `.album-detail`; the artist page
-   wraps in a padded `.content-body` (padding: var(--space-6)). This cancels that
-   padding so the shared `.album-detail-header` reaches the container edges
+   wraps in a padded `.content-body` (padding: var(--page-inset)). This cancels
+   that padding so the shared `.album-detail-header` reaches the container edges
    (top + sides) exactly like the album header — full-bleed, no spacing. */
 .album-detail-header.artist-detail-bleed {
-  margin-top: calc(-1 * var(--space-6));
-  margin-inline: calc(-1 * var(--space-6));
+  margin-top: calc(-1 * var(--page-inset));
+  margin-inline: calc(-1 * var(--page-inset));
 }
 
 .artist-detail-avatar {

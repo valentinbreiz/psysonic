@@ -1,6 +1,6 @@
 /* ─── Offline Library ─── */
 .offline-library {
-  padding: var(--space-6);
+  padding: var(--page-inset);
   display: flex;
   flex-direction: column;
   gap: var(--space-6);
@@ -264,7 +264,7 @@
 
 .album-detail-header {
   position: relative;
-  padding: var(--space-6) var(--space-6) 0;
+  padding: var(--page-inset) var(--page-inset) 0;
   overflow: hidden;
 }
 

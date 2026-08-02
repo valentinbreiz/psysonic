@@ -1,46 +1,23 @@
-/* ─── Page padding ─── */
-.app-shell[data-mobile] .content-body {
-  padding: var(--space-4) !important;
+/* ─── Page padding — Mobile ───
+   Mobile keeps the exact desktop inset architecture — every page pads itself
+   with --page-inset and full-width bars cancel it with matching negative
+   margins — only the token's value changes. No per-page overrides needed. */
+.app-shell[data-mobile] {
+  --page-inset: var(--space-4);
 }
 
-/* Mobile full-bleed model: anything inside a scroll container is clipped at
-   the container's box, so a padded route host caps every full-bleed section
-   16px short of the screen. The host and the scroll viewport reach the true
-   edges; the scrolled content carries the single page inset instead. */
-.app-shell[data-mobile] .content-body.app-shell-route-host {
-  padding: 0 !important;
+/* Horizontal rails: same clip-room trick as the desktop shadow room
+   (album-row-container.css), widened by the page inset — cards keep their
+   alignment with the section titles but paint and scroll under the screen
+   edges instead of clipping at the page gutter. */
+.app-shell[data-mobile] .album-grid {
+  margin-inline: calc(-1 * (var(--rail-shadow-room) + var(--page-inset)));
+  padding-inline: calc(var(--rail-shadow-room) + var(--page-inset));
+  scroll-padding-inline: calc(var(--rail-shadow-room) + var(--page-inset));
 }
 
-.app-shell[data-mobile] .app-shell-route-scroll__viewport > * {
-  padding: var(--space-4);
-}
-
-/* Pages that nest their own .content-body inside the scrolled content
-   (Home, artist/composer detail, …): one horizontal inset is enough, and
-   the wrapper's own contain/overflow (main-content.css) would re-clip the
-   full-bleed sections below. */
-.app-shell[data-mobile] .app-shell-route-scroll__viewport > * .content-body {
-  padding-left: 0 !important;
-  padding-right: 0 !important;
-  overflow: visible !important;
-  contain: none !important;
-}
-
-/* Full-bleed sections: the hero and the horizontal rails extend under the
-   screen edges; the rails keep the page inset as scroll padding so cards
-   still start aligned with the section titles and scroll under the edge. */
-.app-shell[data-mobile] .hero,
-.app-shell[data-mobile] .hero-placeholder {
-  width: auto;
-  margin-left: calc(-1 * var(--space-4));
-  margin-right: calc(-1 * var(--space-4));
-}
-
-.app-shell[data-mobile] .album-grid,
 .app-shell[data-mobile] .song-grid {
-  margin-left: calc(-1 * var(--space-4));
-  margin-right: calc(-1 * var(--space-4));
-  padding-left: var(--space-4);
-  padding-right: var(--space-4);
-  scroll-padding-inline: var(--space-4);
+  margin-inline: calc(-1 * var(--page-inset));
+  padding-inline: var(--page-inset);
+  scroll-padding-inline: var(--page-inset);
 }

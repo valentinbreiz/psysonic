@@ -1,6 +1,6 @@
 /* ─── Album Tracklist — Mobile ─── */
 .tracklist-mobile {
-  padding: 0 var(--space-4) var(--space-6);
+  padding: 0 var(--page-inset) var(--space-6);
 }
 
 .tracklist-mobile-row {

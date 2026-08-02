@@ -28,7 +28,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-4);
-  padding: 0 var(--space-6);
+  padding: 0 var(--page-inset);
   height: 64px;
   box-sizing: border-box;
   border-bottom: 1px solid var(--border-subtle);
@@ -60,7 +60,7 @@
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: var(--space-6);
+  padding: var(--page-inset);
   contain: paint;
 }
 
@@ -190,8 +190,8 @@
 }
 
 .mainstage-inpage-scroll__viewport {
-  padding-bottom: var(--space-6);
-  padding-right: var(--space-6);
+  padding-bottom: var(--page-inset);
+  padding-right: var(--page-inset);
 }
 
 /* Sticky page header: keeps page title + filter/search bar visible while the
@@ -205,8 +205,8 @@
   top: 0;
   z-index: 5;
   background: var(--bg-app);
-  margin: 0 calc(-1 * var(--space-6)) var(--space-5);
-  padding: var(--space-4) var(--space-6);
+  margin: 0 calc(-1 * var(--page-inset)) var(--space-5);
+  padding: var(--space-4) var(--page-inset);
   border-bottom: 1px solid var(--border-subtle);
 }
 

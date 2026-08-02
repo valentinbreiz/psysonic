@@ -14,6 +14,12 @@
   --space-8: 32px;
   --space-10: 40px;
 
+  /* Page gutter: the inset every page keeps between its content and the pane
+     edges. Full-width bars (sticky headers, detail heroes, …) cancel it with a
+     matching negative margin, so both the padding and the bleed must always
+     read this one token. Mobile tightens it (page-padding.css). */
+  --page-inset: var(--space-6);
+
   /* Radii */
   --radius-sm: 6px;
   --radius-md: 10px;
