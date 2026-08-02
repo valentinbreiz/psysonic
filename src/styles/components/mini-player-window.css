@@ -488,7 +488,6 @@ html[data-psy-native-hidden="true"] *::after {
    a "frozen UI" bug to users on WMs that drop window focus on hover. */
 html[data-app-blurred="true"] .marquee-scroll,
 html[data-app-blurred="true"] .nav-np-dot,
-html[data-app-blurred="true"] .bottom-nav-np-dot,
 html[data-app-blurred="true"] .now-playing-dropdown__live-icon--active > svg,
 html[data-app-blurred="true"] .fs-mesh-blob,
 html[data-app-blurred="true"] .fs-portrait-wrap,

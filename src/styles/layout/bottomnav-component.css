@@ -63,17 +63,6 @@
   align-items: center;
 }
 
-.bottom-nav-np-dot {
-  position: absolute;
-  top: -2px;
-  right: -5px;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--accent);
-  animation: np-dot-pulse 1.8s ease-in-out infinite;
-}
-
 .bottom-nav-label {
   line-height: 1;
 }

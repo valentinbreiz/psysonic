@@ -1,22 +1,20 @@
 import { useState } from 'react';
 import { NavLink } from 'react-router';
 import { useTranslation } from 'react-i18next';
-import { Disc3, Search, Music4, AudioLines, MoreHorizontal } from 'lucide-react';
-import { usePlayerStore } from '@/features/playback/store/playerStore';
+import { Disc3, Search, Music4, MoreHorizontal } from 'lucide-react';
 import { MobileSearchOverlay } from '@/features/search';
 import MobileMoreOverlay from '@/features/sidebar/components/MobileMoreOverlay';
 import { mainstageBrowseNavHandlers } from '@/features/sidebar/utils/mainstageBrowseNavHandlers';
 
+/* No Now Playing tab: the player bar sits right below the nav and tapping
+   its cover already opens the mobile Now Playing view. */
 const NAV_ITEMS = [
-  { to: '/',            end: true,  icon: Disc3,      labelKey: 'sidebar.mainstage' },
-  { to: '/albums',      end: false, icon: Music4,     labelKey: 'sidebar.allAlbums' },
-  { to: '/now-playing', end: false, icon: AudioLines, labelKey: 'sidebar.nowPlaying' },
+  { to: '/',       end: true,  icon: Disc3,  labelKey: 'sidebar.mainstage' },
+  { to: '/albums', end: false, icon: Music4, labelKey: 'sidebar.allAlbums' },
 ] as const;
 
 export default function BottomNav() {
   const { t } = useTranslation();
-  const isPlaying    = usePlayerStore(s => s.isPlaying);
-  const currentTrack = usePlayerStore(s => s.currentTrack);
   const [searchOpen, setSearchOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
 
@@ -33,9 +31,6 @@ export default function BottomNav() {
           >
             <span className="bottom-nav-icon-wrap">
               <Icon size={22} />
-              {to === '/now-playing' && isPlaying && currentTrack && (
-                <span className="bottom-nav-np-dot" />
-              )}
             </span>
             <span className="bottom-nav-label">{t(labelKey)}</span>
           </NavLink>

@@ -10,7 +10,9 @@ import { isOfflineSidebarNavAllowed } from '@/features/offline';
 import { useReactiveOfflineBrowseContext } from '@/features/sidebar/hooks/useReactiveOfflineBrowseContext';
 import { offlineBrowseNavFlags } from '@/features/offline';
 
-const BOTTOM_NAV_ROUTES = new Set(['/', '/albums', '/now-playing']);
+/* Routes that already have a dedicated mobile entry point: the bottom-nav
+   tabs, plus /now-playing which opens by tapping the player bar. */
+const MOBILE_NAV_COVERED_ROUTES = new Set(['/', '/albums', '/now-playing']);
 
 export default function MobileMoreOverlay({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
@@ -28,7 +30,7 @@ export default function MobileMoreOverlay({ onClose }: { onClose: () => void }) 
       if (!cfg?.visible) return false;
       const item = ALL_NAV_ITEMS[cfg.id];
       if (!item) return false;
-      if (BOTTOM_NAV_ROUTES.has(item.to)) return false;
+      if (MOBILE_NAV_COVERED_ROUTES.has(item.to)) return false;
       if (randomNavMode === 'hub' && (cfg.id === 'randomMix' || cfg.id === 'randomAlbums')) return false;
       if (randomNavMode === 'separate' && cfg.id === 'randomPicker') return false;
       if (cfg.id === 'luckyMix' && !luckyMixAvailable) return false;
