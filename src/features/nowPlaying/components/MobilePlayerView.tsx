@@ -205,62 +205,18 @@ function LyricsDrawer({ onClose, currentTrack }: { onClose: () => void; currentT
   );
 }
 
-// ── Mobile Player View ────────────────────────────────────────────────────────
+// ── Scrubber ──────────────────────────────────────────────────────────────────
+// Owns the playback-progress subscription: the channel ticks on every audio
+// frame, and re-rendering the whole takeover (full-screen gradient + cover)
+// per tick makes every tap on the view feel sluggish on mobile WebViews.
 
-export default function MobilePlayerView() {
-  const { t } = useTranslation();
-  const navigate = useNavigate();
-  const navigatePlaybackLibrary = usePlaybackLibraryNavigate();
-  // Lock body scroll while full-screen player is mounted
-  useEffect(() => {
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => { document.body.style.overflow = prev; };
-  }, []);
-
-  const currentTrack = usePlayerStore(s => s.currentTrack);
-  const resolvedStreamFormat = usePlayerStore(s => s.resolvedStreamFormat);
-  const isPlaying    = usePlayerStore(s => s.isPlaying);
+function MpScrubber({ trackId, duration }: { trackId?: string; duration: number }) {
+  const seek = usePlayerStore(s => s.seek);
   const playbackProgress = useSyncExternalStore(
     onStoreChange => subscribePlaybackProgress(() => onStoreChange()),
     getPlaybackProgressSnapshot,
     getPlaybackProgressSnapshot,
   );
-  const progress = playbackProgress.progress;
-  const currentTime = playbackProgress.currentTime;
-  const togglePlay   = usePlayerStore(s => s.togglePlay);
-  const { delayModalOpen, setDelayModalOpen, playPauseBind } = usePlaybackDelayPress(togglePlay);
-  const transportAnchorRef = useRef<HTMLDivElement>(null);
-  const playSlotRef = useRef<HTMLSpanElement>(null);
-  const scheduleRemaining = usePlaybackScheduleRemaining();
-  const next         = usePlayerStore(s => s.next);
-  const previous     = usePlayerStore(s => s.previous);
-  const seek         = usePlayerStore(s => s.seek);
-  const repeatMode   = usePlayerStore(s => s.repeatMode);
-  const toggleRepeat = usePlayerStore(s => s.toggleRepeat);
-  const shuffleQueue = usePlayerStore(s => s.shuffleQueue);
-  const starredOverrides = usePlayerStore(s => s.starredOverrides);
-
-  const duration = currentTrack?.duration ?? 0;
-
-  const playbackCoverRef = usePlaybackTrackCoverRef(currentTrack ?? undefined);
-  const { src: coverFetchUrl, cacheKey: coverKey } = usePlaybackCoverArt(playbackCoverRef, 800);
-  const resolvedCover = useCachedUrl(coverFetchUrl, coverKey);
-  const directCover = currentTrack?.directCoverArtUrl;
-  const displayCover = directCover ?? resolvedCover;
-
-  // Dynamic background color extracted from cover art
-  const accentColor = useAlbumAccentColor(displayCover);
-
-  // Star / favorite
-  const isStarred = currentTrack
-    ? (ownedOverrideValue(starredOverrides, currentTrack) ?? !!currentTrack.starred)
-    : false;
-
-  const toggleStar = useCallback(() => {
-    if (!currentTrack) return;
-    queueSongStar(currentTrack.id, !isStarred, currentTrack.serverId);
-  }, [currentTrack, isStarred]);
 
   // Scrubber touch/mouse drag
   const scrubberRef = useRef<HTMLDivElement>(null);
@@ -318,7 +274,89 @@ export default function MobilePlayerView() {
     // React Compiler set-state-in-effect rule: state set from an external subscription/event callback.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setPreviewProgress(null);
-  }, [currentTrack?.id]);
+  }, [trackId]);
+
+  const effectiveProgress = previewProgress ?? playbackProgress.progress;
+  const effectiveTime =
+    previewProgress !== null && duration > 0
+      ? previewProgress * duration
+      : playbackProgress.currentTime;
+
+  return (
+    <div className="mp-scrubber-wrap">
+      <div
+        className="mp-scrubber"
+        ref={scrubberRef}
+        onMouseDown={e => onScrubStart(e.clientX)}
+        onTouchStart={e => onScrubStart(e.touches[0].clientX)}
+      >
+        <div className="mp-scrubber-bg" />
+        <div className="mp-scrubber-fill" style={{ width: `${effectiveProgress * 100}%` }} />
+        <div className="mp-scrubber-thumb" style={{ left: `${effectiveProgress * 100}%` }} />
+      </div>
+      <div className="mp-scrubber-times">
+        <span>{formatTrackTime(effectiveTime)}</span>
+        <span>-{formatTrackTime(Math.max(0, duration - effectiveTime))}</span>
+      </div>
+    </div>
+  );
+}
+
+// ── Mobile Player View ────────────────────────────────────────────────────────
+
+export default function MobilePlayerView() {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const navigatePlaybackLibrary = usePlaybackLibraryNavigate();
+  // navigate(-1) is a silent no-op when /now-playing is the first history
+  // entry (fresh WebView start restoring the route) — the view then looks
+  // stuck. Fall back to Mainstage in that case.
+  const closePlayer = useCallback(() => {
+    if ((window.history.state?.idx ?? 0) > 0) navigate(-1);
+    else navigate('/', { replace: true });
+  }, [navigate]);
+  // Lock body scroll while full-screen player is mounted
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, []);
+
+  const currentTrack = usePlayerStore(s => s.currentTrack);
+  const resolvedStreamFormat = usePlayerStore(s => s.resolvedStreamFormat);
+  const isPlaying    = usePlayerStore(s => s.isPlaying);
+  const togglePlay   = usePlayerStore(s => s.togglePlay);
+  const { delayModalOpen, setDelayModalOpen, playPauseBind } = usePlaybackDelayPress(togglePlay);
+  const transportAnchorRef = useRef<HTMLDivElement>(null);
+  const playSlotRef = useRef<HTMLSpanElement>(null);
+  const scheduleRemaining = usePlaybackScheduleRemaining();
+  const next         = usePlayerStore(s => s.next);
+  const previous     = usePlayerStore(s => s.previous);
+  const repeatMode   = usePlayerStore(s => s.repeatMode);
+  const toggleRepeat = usePlayerStore(s => s.toggleRepeat);
+  const shuffleQueue = usePlayerStore(s => s.shuffleQueue);
+  const starredOverrides = usePlayerStore(s => s.starredOverrides);
+
+  const duration = currentTrack?.duration ?? 0;
+
+  const playbackCoverRef = usePlaybackTrackCoverRef(currentTrack ?? undefined);
+  const { src: coverFetchUrl, cacheKey: coverKey } = usePlaybackCoverArt(playbackCoverRef, 800);
+  const resolvedCover = useCachedUrl(coverFetchUrl, coverKey);
+  const directCover = currentTrack?.directCoverArtUrl;
+  const displayCover = directCover ?? resolvedCover;
+
+  // Dynamic background color extracted from cover art
+  const accentColor = useAlbumAccentColor(displayCover);
+
+  // Star / favorite
+  const isStarred = currentTrack
+    ? (ownedOverrideValue(starredOverrides, currentTrack) ?? !!currentTrack.starred)
+    : false;
+
+  const toggleStar = useCallback(() => {
+    if (!currentTrack) return;
+    queueSongStar(currentTrack.id, !isStarred, currentTrack.serverId);
+  }, [currentTrack, isStarred]);
 
   // Drawers
   const [showQueue, setShowQueue] = useState(false);
@@ -329,7 +367,7 @@ export default function MobilePlayerView() {
     return (
       <div className="mp-view">
         <div className="mp-header">
-          <button className="mp-back" onClick={() => navigate(-1)} aria-label={t('player.back')}>
+          <button className="mp-back" onClick={closePlayer} aria-label={t('player.back')}>
             <ChevronDown size={28} />
           </button>
           <span className="mp-header-title">{t('sidebar.nowPlaying')}</span>
@@ -346,17 +384,12 @@ export default function MobilePlayerView() {
   const bgStyle: CSSProperties = {
     background: `radial-gradient(ellipse 160% 55% at 50% 20%, rgba(${accentColor}, 0.38) 0%, var(--bg-app) 65%)`,
   };
-  const effectiveProgress = previewProgress ?? progress;
-  const effectiveTime =
-    previewProgress !== null && duration > 0
-      ? previewProgress * duration
-      : currentTime;
 
   return (
     <div className="mp-view" style={bgStyle}>
       {/* Header */}
       <div className="mp-header">
-        <button className="mp-back" onClick={() => navigate(-1)} aria-label={t('player.back')}>
+        <button className="mp-back" onClick={closePlayer} aria-label={t('player.back')}>
           <ChevronDown size={28} />
         </button>
         <span className="mp-header-title">{t('sidebar.nowPlaying')}</span>
@@ -407,22 +440,7 @@ export default function MobilePlayerView() {
       </div>
 
       {/* Scrubber */}
-      <div className="mp-scrubber-wrap">
-        <div
-          className="mp-scrubber"
-          ref={scrubberRef}
-          onMouseDown={e => onScrubStart(e.clientX)}
-          onTouchStart={e => onScrubStart(e.touches[0].clientX)}
-        >
-          <div className="mp-scrubber-bg" />
-          <div className="mp-scrubber-fill" style={{ width: `${effectiveProgress * 100}%` }} />
-          <div className="mp-scrubber-thumb" style={{ left: `${effectiveProgress * 100}%` }} />
-        </div>
-        <div className="mp-scrubber-times">
-          <span>{formatTrackTime(effectiveTime)}</span>
-          <span>-{formatTrackTime(Math.max(0, duration - effectiveTime))}</span>
-        </div>
-      </div>
+      <MpScrubber trackId={currentTrack.id} duration={duration} />
 
       {/* Transport Controls */}
       <div className="mp-controls" ref={transportAnchorRef}>
