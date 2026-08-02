@@ -12,7 +12,11 @@
     <!-- AndroidTV support -->
     <uses-feature android:name="android.software.leanback" android:required="false" />
 
+    <!-- No cloud backup: server credentials sit in WebView localStorage and the
+         library DB exceeds the 25 MB transport quota anyway. Recovery after a
+         reinstall is a fresh library sync + the server-side play queue. -->
     <application
+        android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:theme="@style/Theme.psysonic"

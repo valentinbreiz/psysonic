@@ -1,8 +1,17 @@
+import { IS_MOBILE_PLATFORM } from '@/lib/util/platform';
+
 export const COVER_CACHE_STRATEGIES = ['lazy', 'aggressive'] as const;
 
 export type CoverCacheStrategy = (typeof COVER_CACHE_STRATEGIES)[number];
 
-export const DEFAULT_COVER_CACHE_STRATEGY: CoverCacheStrategy = 'lazy';
+/**
+ * Mobile defaults to the library backfill: a cold on-demand ensure costs
+ * 0.5–2.5 s per cover on a phone (server resize + download + WebP encode),
+ * so lazy loading leaves every uncached grid crawling. Desktop keeps lazy.
+ */
+export const DEFAULT_COVER_CACHE_STRATEGY: CoverCacheStrategy = IS_MOBILE_PLATFORM
+  ? 'aggressive'
+  : 'lazy';
 
 export function coverStrategyAllowsRoutePrefetch(_strategy: CoverCacheStrategy): boolean {
   return true;

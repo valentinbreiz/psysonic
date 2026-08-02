@@ -20,7 +20,12 @@ use super::{count_cached_cover_ids, dir_usage_for_server};
 
 /// Default concurrent library downloads + encodes. Runtime-tunable via the
 /// perf probe (`set_parallel`); the constant is only the startup value.
-const LIBRARY_BACKFILL_PARALLEL_DEFAULT: usize = 2;
+/// Desktop stays at 2 — the pass has unlimited time there and should be
+/// unobtrusive. Mobile runs at 6: fill time is bounded by how long the app is
+/// in the foreground, the pass is latency-bound against the server's resize
+/// (Pixel 9 / WAN: 8 covers/min at 2, 20/min at 6), and pushing to 10 only
+/// saturates the phone's cores on encodes without gaining throughput.
+const LIBRARY_BACKFILL_PARALLEL_DEFAULT: usize = if cfg!(mobile) { 6 } else { 2 };
 /// Bounds for the runtime knob — keep it sane so a stray value cannot DoS the
 /// host or starve the audio path.
 pub const LIBRARY_BACKFILL_PARALLEL_MIN: usize = 1;
@@ -34,6 +39,13 @@ const SYNC_WAIT_MS: u64 = 5000;
 /// the perf-probe overlay while a pass downloads). Only runs for the duration of
 /// an active pass.
 const PROGRESS_TICK_SECS: u64 = 3;
+/// Mobile-only bulk budget per server bucket: the full-catalog pass stops
+/// feeding new downloads once the on-disk cover cache passes this size, so a
+/// huge library degrades back to lazy loading instead of filling the phone.
+/// On-demand (visible) ensures are not gated. Desktop keeps the historical
+/// unbounded pass.
+#[cfg(mobile)]
+const LIBRARY_BACKFILL_DISK_BUDGET_BYTES: u64 = 1536 * 1024 * 1024;
 /// Minimum gap between `library:sync-idle`-driven passes. Each such pass runs the
 /// idle-gate signature (a full cover-dir walk + DB count), so a chatty sync (e.g.
 /// periodic delta syncs) must not make that walk fire every few seconds. Manual
@@ -472,6 +484,23 @@ async fn run_full_pass(app: AppHandle, worker: Arc<CoverBackfillWorker>, force: 
         if worker.ui_priority_hold.load(Ordering::Relaxed) {
             tokio::time::sleep(Duration::from_millis(200)).await;
             continue;
+        }
+
+        // Checked once per chunk against the TTL-memoized walk, so the cost is
+        // one directory scan every DIR_USAGE_CACHE_TTL at worst. Consumers may
+        // still drain the ≤256 buffered items after the break (bounded overshoot).
+        #[cfg(mobile)]
+        {
+            let (bytes, _) =
+                super::cached_dir_usage_for_server(&root, &session.server_index_key);
+            if bytes > LIBRARY_BACKFILL_DISK_BUDGET_BYTES {
+                crate::app_eprintln!(
+                    "[cover-backfill] pass stopped: cover cache at {} MiB exceeds the mobile budget ({} MiB)",
+                    bytes / (1024 * 1024),
+                    LIBRARY_BACKFILL_DISK_BUDGET_BYTES / (1024 * 1024)
+                );
+                break;
+            }
         }
 
         let scan_chunk: Vec<_> = rows_iter.by_ref().take(SCAN_CHUNK_ROWS).collect();

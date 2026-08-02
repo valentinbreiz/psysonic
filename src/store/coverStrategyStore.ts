@@ -84,25 +84,36 @@ export const useCoverStrategyStore = create<CoverStrategyState>()(
     {
       name: 'psysonic-cover-cache-strategy',
       storage: createJSONStorage(() => localStorage),
-      version: 1,
+      version: 2,
       migrate: (persisted, version) => {
         const fallback = {
           strategy: DEFAULT_COVER_CACHE_STRATEGY,
           strategyByServer: {} as Record<string, CoverCacheStrategy | undefined>,
         };
+        let next: typeof fallback;
         if (version < 1) {
           const legacyGlobal = readLegacyGlobalStrategy();
           const old = persisted as { strategy?: CoverCacheStrategy; strategyByServer?: Record<string, CoverCacheStrategy> };
-          return {
+          next = {
             strategy: legacyGlobal ?? old.strategy ?? fallback.strategy,
             strategyByServer: old.strategyByServer ?? fallback.strategyByServer,
           };
+        } else {
+          const current = persisted as Partial<typeof fallback>;
+          next = {
+            strategy: current.strategy ?? fallback.strategy,
+            strategyByServer: current.strategyByServer ?? fallback.strategyByServer,
+          };
         }
-        const current = persisted as Partial<typeof fallback>;
-        return {
-          strategy: current.strategy ?? fallback.strategy,
-          strategyByServer: current.strategyByServer ?? fallback.strategyByServer,
-        };
+        // v2: the global default became platform-dependent (mobile →
+        // 'aggressive'). The store persists eagerly, so a pre-v2 'lazy' is
+        // indistinguishable from "never chose" — and 'lazy' was the old
+        // universal default. Treat it as unset and adopt the platform
+        // default; choices made at v2 are never rewritten.
+        if (version < 2 && next.strategy === 'lazy') {
+          next.strategy = DEFAULT_COVER_CACHE_STRATEGY;
+        }
+        return next;
       },
       partialize: s => ({
         strategy: s.strategy,

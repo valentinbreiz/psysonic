@@ -165,6 +165,92 @@ Quick-Settings media panel still work — only the shade notification is hidden.
   current track anyway. Playing on with the app "closed" would require moving
   queue advance into Rust; that's a deliberate non-goal for the PoC.
 
+## Storage & image cache on Android
+
+### Where things live
+
+Everything is app-private internal storage — no runtime storage permission and
+no scoped-storage work needed, because nothing is written outside the app
+sandbox. Tauri's `app_data_dir()` resolves to the package root on Android, so
+the on-device layout is:
+
+```
+/data/user/0/dev.psysonic.player/
+├── cover-cache/          Rust cover cache (WebP tiers, one bucket per server)
+├── databases/library     library SQLite mirror (~47 MB for a 7.8k-track library)
+├── databases/analysis    track-analysis cache
+├── psysonic-hot-cache/   hot audio cache (when enabled)
+├── psysonic-offline/     offline downloads
+├── stream-spill/         completed stream bytes (transient)
+├── app_webview/          WebView profile: IndexedDB image cache, localStorage
+│                         (all zustand-persisted stores, including auth)
+└── cache/                WebView HTTP cache + psysonic-cli.log
+```
+
+Consequences of that split:
+
+- Android Settings → "Clear cache" wipes only `cache/` (WebView HTTP cache and
+  the log). The cover cache, library DB, hot cache and downloads survive; the
+  OS can also purge `cache/` under storage pressure but never touches the rest,
+  so nothing load-bearing lives in an evictable location.
+- "Clear storage" (or an uninstall) wipes everything. Recovery is a fresh login
+  + library sync, and the queue/position come back from the server play queue
+  (`getPlayQueue`) — same path as the process-death recovery above.
+- Cloud backup is disabled (`android:allowBackup="false"` in the manifest):
+  server credentials sit in WebView localStorage, and the library DB exceeds
+  the 25 MB backup transport quota anyway.
+- The custom hot-cache / offline directory pickers are effectively
+  desktop-only: Android's file picker hands out SAF `content://` URIs that the
+  Rust `std::fs` code cannot open, so on mobile both features stay on their
+  default app-private paths.
+
+### Why covers took forever, and the fix
+
+The desktop cover pipeline already works on Android: Rust downloads
+`getCoverArt` (server-side resized), encodes WebP tiers into `cover-cache/`,
+and the webview displays them through the asset protocol
+(`http://asset.localhost/...`). A cached cover renders in 25–70 ms — reads
+were never the problem.
+
+The problem was cache *fill*. The default cover strategy is `lazy` (fetch when
+scrolled into view), and one cold ensure measured 0.6–2.6 s on a Pixel 9:
+server-side resize + download over WAN + WebP encode on the phone. With ~88 %
+of a 10 255-cover catalog uncached, every screen was a wall of multi-second
+pop-ins.
+
+The fix is to default mobile to the `aggressive` strategy
+(`DEFAULT_COVER_CACHE_STRATEGY` in `coverStrategy.ts`), which turns on the
+native library backfill that desktop users could already opt into. The worker
+pre-downloads the 800 px canonical per cover and derives the smaller grid
+tiers locally — after that, every surface reads from disk. It yields to
+visible-cover traffic (`ui_priority_hold`), and mobile runs 6 parallel
+downloads/encodes instead of desktop's 2: the pass only progresses while the
+app is up, and it is latency-bound against the server's image resize (on the
+Pixel 9 against a WAN server: 8 covers/min at 2 threads, 20/min at 6; 10
+threads just saturates the cores on encodes for no gain). A 10 k-cover
+catalog therefore fills over a few hours of cumulative app-open time, warming
+the most-browsed screens first since visible covers always take priority.
+Cover strategy store migration v2 flips existing installs still carrying the
+old `lazy` default; the per-server choice in Settings → Offline & cache is
+untouched.
+
+Backgrounding interacts with the freezer the same way playback does: with the
+app cached and nothing playing, the whole process (including the backfill's
+tokio tasks) is frozen and the pass simply resumes when the app comes back.
+While music plays, the foreground service keeps the process running, so the
+pass continues in the background.
+
+### Cache limits
+
+The cover cache has no eviction and desktop treats it as unbounded. On mobile
+the bulk pass now stops once the server's bucket exceeds 1.5 GiB
+(`LIBRARY_BACKFILL_DISK_BUDGET_BYTES` in `backfill_worker.rs`, checked once
+per scan chunk against a TTL-memoized directory walk). Only the prefetcher
+stops — visible covers keep caching on demand — so an oversized library
+degrades back to lazy loading instead of filling the phone. For scale: the
+full 10 255-cover test catalog lands around 850 MB–1 GB at the 800 px
+canonical tier.
+
 ## Building the Android app
 
 Prerequisites: Android SDK + NDK, JDK 17+, Rust Android targets:
@@ -198,8 +284,10 @@ The APK lands in `src-tauri/gen/android/app/build/outputs/apk/`.
 - **iOS audio lifecycle**: `mpris_*` are still no-ops there — needs
   AVAudioSession category/interruption handling + MPNowPlayingInfoCenter +
   MPRemoteCommandCenter, and background-audio entitlements.
-- **Storage paths**: library index / Hot Cache land in the app-private dir; sizes
-  and eviction defaults were tuned for desktop disks.
+- **Cache eviction**: the cover cache bulk pass has a mobile disk budget but
+  there is still no LRU eviction for covers, hot cache or offline files;
+  long-lived installs only ever grow. SAF support for custom cache/download
+  locations is also missing (see Storage above).
 - **UI**: the responsive/mobile layouts exist but were designed for narrow desktop
   windows, not touch — expect rough edges (hover menus, drag interactions).
 - **iOS**: untested; needs a macOS host and an Apple developer account.
