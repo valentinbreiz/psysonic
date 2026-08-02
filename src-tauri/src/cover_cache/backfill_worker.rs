@@ -307,8 +307,17 @@ async fn ensure_one(
     session: CoverBackfillSession,
     item: psysonic_library::cover_backfill::CoverBackfillItem,
 ) {
-    if worker.ui_priority_hold.load(Ordering::Relaxed) {
-        return;
+    // Yield, don't drop: discarding here silently skipped the item for the
+    // rest of the pass, and a completed pass settles the idle gate — so held
+    // items were never retried until an app restart or a forced run. The hold
+    // is released by a webview timer, which a hidden page (mobile lockscreen,
+    // backgrounded app) never fires; one navigation while hidden then used to
+    // drain the whole worklist through no-op consumers.
+    while worker.ui_priority_hold.load(Ordering::Relaxed) {
+        if !worker.enabled.load(Ordering::Relaxed) {
+            return;
+        }
+        tokio::time::sleep(Duration::from_millis(200)).await;
     }
     let args = CoverCacheEnsureArgs {
         server_index_key: session.server_index_key,
