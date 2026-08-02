@@ -277,7 +277,11 @@ export function AppShell() {
       <main className="main-content">
         <div className="main-content-zoom">
         <header className="content-header">
-          <LiveSearch />
+          {/* Mobile searches through the bottom-nav overlay; the desktop
+              LiveSearch is display: none there but still flips the header
+              into [data-live-search-overlay] whenever the shared search
+              state is active, blanking every header control. */}
+          {!isMobile && <LiveSearch />}
           {import.meta.env.DEV && <DevNetworkModeToggle />}
           <div className="spacer" />
           <ConnectionIndicator status={connStatus} isLan={isLan} serverName={serverName} />
