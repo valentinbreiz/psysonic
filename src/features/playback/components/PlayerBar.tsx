@@ -14,6 +14,8 @@ import { useAuthStore } from '@/store/authStore';
 import { useThemeStore } from '@/store/themeStore';
 import { Equalizer } from '@/features/equalizer';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router';
+import { useIsMobile } from '@/lib/hooks/useIsMobile';
 import { usePlaybackLibraryNavigate } from '@/features/playback/hooks/usePlaybackLibraryNavigate';
 import { useRadioMetadata } from '@/features/radio';
 import { useRadioMprisSync } from '@/features/radio';
@@ -79,6 +81,12 @@ export default function PlayerBar() {
     userRatingOverrides: s.userRatingOverrides,
     openContextMenu: s.openContextMenu,
   })));
+  const isMobile = useIsMobile();
+  const navigate = useNavigate();
+  // The desktop fullscreen player is a wide-layout overlay; on mobile the
+  // cover tap opens the mobile Now Playing route so both entry points (player
+  // bar and bottom nav) land on the same screen.
+  const openNowPlaying = isMobile ? () => navigate('/now-playing') : toggleFullscreen;
   const enrichmentPrimaryId = useAuthStore(s => s.enrichmentPrimaryId);
   const floatingPlayerBar = useThemeStore(s => s.floatingPlayerBar);
   const playerBarRef = useRef<HTMLElement>(null);
@@ -206,7 +214,7 @@ export default function PlayerBar() {
         networkLoved={networkLoved}
         toggleNetworkLove={toggleNetworkLove}
         userRatingOverrides={userRatingOverrides}
-        toggleFullscreen={toggleFullscreen}
+        toggleFullscreen={openNowPlaying}
         navigate={navigatePlaybackLibrary}
         openContextMenu={openContextMenu}
         t={t}

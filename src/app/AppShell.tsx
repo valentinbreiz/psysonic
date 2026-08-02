@@ -341,7 +341,7 @@ export function AppShell() {
       {!isMobile && !perfFlags.disableQueuePanelMount && <QueuePanel />}
       {isMobile && !isMobilePlayer && <BottomNav />}
       {!isMobilePlayer && <PlayerBar />}
-      {isFullscreenOpen && (
+      {!isMobile && isFullscreenOpen && (
         fullscreenPlayerStyle === 'immersive'
           ? <FullscreenPlayerImmersive onClose={toggleFullscreen} />
           : fullscreenPlayerStyle === 'prism'
