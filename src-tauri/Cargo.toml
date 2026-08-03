@@ -14,6 +14,15 @@ wiremock = "0.6"
 mockall = "0.13"
 proptest = "1"
 
+# Debug builds keep the workspace crates at opt-level 0 for compile speed, but
+# dependencies carry the hot loops (SQLite via libsqlite3-sys, image decode,
+# WebP encode, reqwest/tokio) — unoptimized they make debug APKs unusable on a
+# phone: multi-second browse queries and cover encodes that monopolize a core
+# for seconds each. Dependencies compile once, so the extra cost is a one-time
+# clean-build hit.
+[profile.dev.package."*"]
+opt-level = 2
+
 [package]
 name = "psysonic"
 version.workspace = true

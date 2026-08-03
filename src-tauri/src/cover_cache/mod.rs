@@ -260,6 +260,41 @@ impl CoverCacheState {
             self.cover_cpu_ui_sem.clone()
         }
     }
+}
+
+/// Drop the calling blocking-pool thread to background priority (nice 19)
+/// while a bulk cover encode runs, restoring the default on drop. Six library
+/// backfill encodes at normal priority starve the webview main thread on a
+/// phone — profiled at ~80% main-thread busy during navigation with a pass
+/// active, ~35% with the encode lane throttled. Nice 19 gives the lane ~1.5%
+/// CFS weight so the UI always wins the cores while pass throughput barely
+/// drops (encodes soak up whatever is idle).
+///
+/// Mobile-only: Android threads may restore their own priority afterwards;
+/// stock Linux (RLIMIT_NICE = 0) could not, which would leave a degraded
+/// thread behind in the shared tokio blocking pool.
+#[cfg(mobile)]
+struct BulkEncodePriorityGuard;
+
+#[cfg(mobile)]
+impl BulkEncodePriorityGuard {
+    fn lower() -> Option<Self> {
+        // PRIO_PROCESS with who = 0 targets the calling *thread* on
+        // Linux/Android (same call android.os.Process.setThreadPriority makes).
+        let ok = unsafe { libc::setpriority(libc::PRIO_PROCESS, 0, 19) } == 0;
+        ok.then_some(Self)
+    }
+}
+
+#[cfg(mobile)]
+impl Drop for BulkEncodePriorityGuard {
+    fn drop(&mut self) {
+        // Tokio reuses blocking-pool threads — put the default weight back.
+        let _ = unsafe { libc::setpriority(libc::PRIO_PROCESS, 0, 0) };
+    }
+}
+
+impl CoverCacheState {
 
     fn pressure_from_bytes(&self, _bytes: u64) -> (String, bool) {
         ("ok".into(), true)
@@ -411,6 +446,8 @@ impl CoverCacheState {
         let (mut wrote_requested, fresh_tiers, derive_source) = tauri::async_runtime::spawn_blocking(
             move || -> EncodeTiersOutcome {
                 let _cpu_permit = cpu_permit;
+                #[cfg(mobile)]
+                let _bulk_nice = quiet.then(BulkEncodePriorityGuard::lower).flatten();
                 let img = match source {
                     CoverSource::Image(i) => i,
                     CoverSource::Bytes(b) => decode_image_bytes(&b)?,

@@ -234,6 +234,18 @@ Cover strategy store migration v2 flips existing installs still carrying the
 old `lazy` default; the per-server choice in Settings → Offline & cache is
 untouched.
 
+Six concurrent WebP encodes at normal thread priority starve the webview main
+thread while a pass runs — profiled during a page navigation, the main thread
+was ~80 % busy with only ~20 % idle, and taps queued for hundreds of
+milliseconds. On mobile the bulk encodes therefore drop themselves to
+`nice 19` for the duration of each encode (`BulkEncodePriorityGuard` in
+`cover_cache/mod.rs`), which leaves the UI ~40 % idle during the same
+navigation with the pass still at full parallelism. The other half of that
+fix is `[profile.dev.package."*"] opt-level = 2` in the workspace
+`Cargo.toml`: debug APKs previously ran SQLite, image decode and WebP encode
+at opt-level 0, multiplying every encode's core-seconds and every browse
+query's latency.
+
 Backgrounding interacts with the freezer the same way playback does: with the
 app cached and nothing playing, the whole process (including the backfill's
 tokio tasks) is frozen and the pass simply resumes when the app comes back.
