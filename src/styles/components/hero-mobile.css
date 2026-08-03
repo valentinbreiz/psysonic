@@ -32,3 +32,18 @@
   margin-top: 12px;
 }
 
+/* Vertically-centered arrows land on the year/genre badges on a 290px-high
+   hero whose text block spans the full width — pin them as a top-right pair
+   instead (same pattern as the rail nav). */
+.app-shell[data-mobile] .hero-nav {
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  padding: var(--space-3);
+}
+
+.app-shell[data-mobile] .hero-nav-arrow {
+  width: 40px;
+  height: 40px;
+}
+
