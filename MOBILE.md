@@ -290,5 +290,12 @@ The APK lands in `src-tauri/gen/android/app/build/outputs/apk/`.
   locations is also missing (see Storage above).
 - **UI**: the responsive/mobile layouts exist but were designed for narrow desktop
   windows, not touch — expect rough edges (hover menus, drag interactions).
+  The global `touch-action: manipulation` reset removed the WebView's
+  double-tap-zoom tap delay (measured on the Pixel 9: click fired ~490 ms
+  after the tap, ~60 ms with the reset). What remains is main-thread render
+  cost: the first navigation to a browse page runs ~1.3 s of long tasks
+  (route chunk + SQL page + grid mount), and during the first ~30 s after
+  launch the boot hydration keeps the thread busy enough that taps queue
+  behind 100–400 ms tasks.
 - **iOS**: untested; needs a macOS host and an Apple developer account.
 - **CI / release**: no Android build in CI yet, APK is debug-signed only.

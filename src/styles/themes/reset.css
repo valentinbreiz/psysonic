@@ -5,6 +5,12 @@
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+  /* Disable the touch double-tap-zoom heuristic: with it every tap's click
+     is held back ~300-450 ms waiting for a possible second tap (measured on
+     Android). Pan and pinch still work, and the class-level
+     `touch-action: none` rules (scrubber, sliders, custom select) still win
+     over this zero-specificity default. */
+  touch-action: manipulation;
 }
 
 html,
