@@ -174,7 +174,10 @@ const COVER_HTTP_CONCURRENCY: usize = 16;
 const COVER_CPU_UI_CONCURRENCY: usize = 2;
 /// Library backfill encode ladder — separate pool so bulk warm-up cannot starve the webview.
 /// Default only; runtime-tunable from the perf probe via `set_backfill_cpu_parallel`.
-const COVER_CPU_BACKFILL_CONCURRENCY: usize = 2;
+/// Mobile matches the worker's download default (`LIBRARY_BACKFILL_PARALLEL_DEFAULT`):
+/// WebP encode is the measured bottleneck on a phone, so an encode pool of 2 caps the
+/// whole pass at ~8 covers/min no matter how many download slots the worker has.
+const COVER_CPU_BACKFILL_CONCURRENCY: usize = if cfg!(mobile) { 6 } else { 2 };
 /// Upper bound for the runtime encode-pool knob (matches the worker cap).
 const COVER_CPU_BACKFILL_MAX: usize = 16;
 /// External providers (fanart.tv) get their own low-concurrency HTTP lane so
